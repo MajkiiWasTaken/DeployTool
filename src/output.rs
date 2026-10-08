@@ -11,7 +11,7 @@ use colored::Colorize;
 
 pub fn banner() {
     println!();
-    println!("{}", "◆ DeployTool v0.2.0".bright_blue().bold());
+    println!("{}", "◆ DeployTool v0.4.0".bright_blue().bold());
     println!("{}", "────────────────────────────────────────".dimmed());
 }
 
@@ -20,7 +20,7 @@ pub fn info(message: &str) {
 }
 
 pub fn step(message: &str) {
-    println!("{} {}", "[BUILD]".yellow().bold(), message);
+    println!("{} {}", "[STEP]".yellow().bold(), message);
 }
 
 pub fn success(message: &str) {
