@@ -1,0 +1,18 @@
+
+# DeployTool example configuration
+
+[targets.Test]
+host = "192.0.2.10"
+user = "admin"
+project = 'C:\Projects\Test\Testfw'
+architecture = "armv7-unknown-linux-gnueabihf"
+binary = "Testfw"
+service = "Testfw.service"
+
+[targets.TestProj]
+host = "192.0.2.20"
+user = "admin"
+project = 'C:\Projects\TestProj\test_fw'
+architecture = "aarch64-unknown-linux-gnu"
+binary = "test_fw"
+service = "test-fw.service"
