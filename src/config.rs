@@ -2,11 +2,13 @@
 * File: config.rs
 * Author: Michal Švrček
 *
-* DeployTool configuration management
+* DeployTool configuration and target management
 *
-* ver. 0.1.0
+* ver. 0.2.0
 *************************************************/
 
+use crate::output;
+use colored::Colorize;
 use serde::Deserialize;
 use std::{collections::BTreeMap, fs, path::Path};
 
@@ -23,6 +25,65 @@ pub struct Target {
     pub architecture: String,
     pub binary: String,
     pub service: String,
+    #[serde(default)]
+    pub ssh: SshConfig,
+    #[serde(default)]
+    pub build: BuildConfig,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct SshConfig {
+    #[serde(default = "default_ssh_port")]
+    pub port: u16,
+
+    #[serde(default)]
+    pub identity_file: Option<String>,
+
+    #[serde(default)]
+    pub legacy_scp: bool,
+}
+
+fn default_ssh_port() -> u16 {
+    22
+}
+
+impl Default for SshConfig {
+    fn default() -> Self {
+        Self {
+            port: default_ssh_port(),
+            identity_file: None,
+            legacy_scp: false,
+        }
+    }
+}
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum BuildRunner {
+    #[default]
+    Native,
+    Wsl,
+}
+
+#[derive(Debug, Default, Deserialize)]
+pub struct BuildConfig {
+    #[serde(default)]
+    pub runner: BuildRunner,
+
+    #[serde(default)]
+    pub wsl_project: Option<String>,
+
+    #[serde(default)]
+    pub linker: Option<String>,
+}
+
+impl BuildRunner {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Native => "Native",
+            Self::Wsl => "WSL",
+        }
+    }
 }
 
 impl Config {
@@ -40,55 +101,85 @@ impl Config {
     }
 
     pub fn list(&self) {
+        output::banner();
+        output::heading("Available deployment targets");
+
         if self.targets.is_empty() {
-            println!("No deployment targets configured.");
+            output::warning("No deployment targets configured.");
             return;
         }
 
-        println!("Available deployment targets:\n");
-
         for (name, target) in &self.targets {
-            println!("  {:<16} {}@{}", name, target.user, target.host);
+            println!(
+                "  {} {}",
+                format!("{name:<16}").cyan().bold(),
+                format!("{}@{}", target.user, target.host).white()
+            );
         }
+
+        println!();
+        output::success(&format!("{} target(s) configured", self.targets.len()));
     }
 }
 
 impl Target {
     pub fn print_info(&self, name: &str) {
-        println!("DeployTool target: {name}");
-        println!("----------------------------------------");
-        println!("Host:         {}", self.host);
-        println!("User:         {}", self.user);
-        println!("Project:      {}", self.project);
-        println!("Architecture: {}", self.architecture);
-        println!("Binary:       {}", self.binary);
-        println!("Service:      {}", self.service);
+        output::banner();
+        output::heading(&format!("Target: {name}"));
+
+        output::label("Host:", &self.host);
+        output::label("User:", &self.user);
+        output::label("Project:", &self.project);
+        output::label("Architecture:", &self.architecture);
+        output::label("Binary:", &self.binary);
+        output::label("Service:", &self.service);
+        output::label("Build runner:", self.build.runner.as_str());
+
+        output::label("SSH port:", &self.ssh.port.to_string());
+        output::label(
+            "SCP protocol:",
+            if self.ssh.legacy_scp {
+                "Legacy SCP"
+            } else {
+                "SFTP"
+            },
+        );
+
+        if let Some(path) = &self.build.wsl_project {
+            output::label("WSL project:", path);
+        }
+
+        if let Some(linker) = &self.build.linker {
+            output::label("Linker:", linker);
+        }
     }
 
     pub fn print_plan(&self, name: &str) {
-        println!("[DRY RUN] Deployment plan: {name}\n");
+        output::banner();
+        output::heading(&format!("Deployment plan: {name}"));
 
-        println!("1. Build project");
-        println!("   Project: {}", self.project);
-        println!("   Target:  {}", self.architecture);
+        output::step("1. Build project");
+        output::label("Project:", &self.project);
+        output::label("Runner:", self.build.runner.as_str());
+        output::label("Architecture:", &self.architecture);
 
-        println!("\n2. Validate binary");
-        println!("   Binary: {}", self.binary);
+        output::step("2. Validate binary");
+        output::label("Binary:", &self.binary);
 
-        println!("\n3. Connect via SSH");
-        println!("   Host: {}@{}", self.user, self.host);
+        output::step("3. Connect via SSH");
+        output::label("Destination:", &format!("{}@{}", self.user, self.host));
 
-        println!("\n4. Backup installed application");
-        println!("   Service: {}", self.service);
+        output::step("4. Backup installed application");
+        output::label("Service:", &self.service);
 
-        println!("\n5. Upload and install new binary");
+        output::step("5. Upload and install new binary");
 
-        println!("\n6. Restart service");
-        println!("   Service: {}", self.service);
+        output::step("6. Restart service");
+        output::label("Service:", &self.service);
 
-        println!("\n7. Verify service health");
-        println!("   Roll back if verification fails");
+        output::step("7. Verify service health");
 
-        println!("\nNo deployment actions were executed.");
+        println!();
+        output::warning("Preview only. No deployment actions were executed.");
     }
 }
