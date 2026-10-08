@@ -11,7 +11,7 @@ use colored::Colorize;
 
 pub fn banner() {
     println!();
-    println!("{}", "◆ DeployTool v0.4.0".bright_blue().bold());
+    println!("{}", "◆ DeployTool v0.5.0".bright_blue().bold());
     println!("{}", "────────────────────────────────────────".dimmed());
 }
 

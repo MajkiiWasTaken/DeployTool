@@ -27,8 +27,8 @@ use std::{path::PathBuf, process};
 #[command(version)]
 #[command(about = "DeployTool - Remote deployment manager")]
 struct Cli {
-    #[arg(long, global = true, default_value = "deploy.toml")]
-    config: PathBuf,
+    #[arg(long, global = true)]
+    config: Option<PathBuf>,
 
     #[command(subcommand)]
     command: Commands,
@@ -142,7 +142,8 @@ fn build_target(name: &str, target: &Target, options: BuildOptions) -> Result<()
 
 fn run() -> Result<(), String> {
     let cli = Cli::parse();
-    let config = Config::load(&cli.config)?;
+    let config_path = config::resolve_config(cli.config)?;
+    let config = Config::load(&config_path)?;
 
     match cli.command {
         Commands::List => config.list(),

@@ -10,7 +10,11 @@
 use crate::output;
 use colored::Colorize;
 use serde::Deserialize;
-use std::{collections::BTreeMap, fs, path::Path};
+use std::{
+    collections::BTreeMap,
+    env, fs,
+    path::{Path, PathBuf},
+};
 
 #[derive(Debug, Deserialize)]
 pub struct Config {
@@ -227,4 +231,53 @@ impl Target {
         println!();
         output::warning("Plan only. No commands were executed.");
     }
+}
+
+pub fn user_config_path() -> Result<PathBuf, String> {
+    #[cfg(windows)]
+    {
+        let appdata = env::var_os("APPDATA").ok_or("APPDATA environment variable is missing")?;
+
+        Ok(PathBuf::from(appdata)
+            .join("DeployTool")
+            .join("deploy.toml"))
+    }
+
+    #[cfg(not(windows))]
+    {
+        let base = env::var_os("XDG_CONFIG_HOME")
+            .map(PathBuf::from)
+            .or_else(|| env::var_os("HOME").map(|home| PathBuf::from(home).join(".config")))
+            .ok_or("Cannot locate user config directory")?;
+
+        Ok(base.join("deploytool").join("deploy.toml"))
+    }
+}
+
+pub fn resolve_config(explicit: Option<PathBuf>) -> Result<PathBuf, String> {
+    if let Some(path) = explicit {
+        if !path.is_file() {
+            return Err(format!("Configuration not found: {}", path.display()));
+        }
+
+        return Ok(path);
+    }
+
+    let local = PathBuf::from("deploy.toml");
+
+    if local.is_file() {
+        return Ok(local);
+    }
+
+    let global = user_config_path()?;
+
+    if global.is_file() {
+        return Ok(global);
+    }
+
+    Err(format!(
+        "No deployment configuration found.\n\
+         Create deploy.toml or place one at:\n  {}",
+        global.display()
+    ))
 }
